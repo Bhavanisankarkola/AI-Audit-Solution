@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+
+{% block title %}Home - Smart Audit{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/home.css')}}" rel="stylesheet">
+{% endblock %}
+
+{% block navbar_title %}Smart Audit{% endblock %}
+
+{% block content %}
+    <div class="main-content">
+        <div class="home-container">
+            <div class="info-section">
+                <h2>Smart Audit</h2>
+                
+                <div class="info-content">
+                    <div class="section-block">
+                        <p style = "text-align: center;">
+                           Smart Audit uses agentic AI to analyze documents, answer audit questions, extract insights, and maintain traceable source-referenced audit trails.
+                        </p>
+                    </div>
+                    <div class="section-block">
+                        <h3 style = "text-align: center;">How It Works</h3>
+                        <div class="steps">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <h4>Upload Documents</h4>
+                                <p>Start by uploading your audit documents, reports, and compliance materials to our system</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <h4>Intelligent Processing</h4>
+                                <p>Documents are automatically processed, analyzed, and indexed for fast semantic search</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <h4>Ask Questions</h4>
+                                <p>Use natural language to ask questions about your documents in the chat interface</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <h4>Get Insights</h4>
+                                <p>Receive detailed answers with automatic references to source documents</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Audit Questionnaire{% endblock %}</title>
+    <link href="{{ url_for('static', filename='css/main.css')}}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-content">
+            <h1 class="navbar-title">{% block navbar_title %}AI Audit{% endblock %}</h1>
+            <nav class="navbar-menu">
+                <a href="/" class="navbar-item {% if request.path == '/' %}active{% endif %}">Home</a>
+                <a href="/upload" class="navbar-item {% if request.path == '/upload' %}active{% endif %}">Upload Documents</a>
+                <a href="/chat" class="navbar-item {% if request.path == '/chat' %}active{% endif %}">Chat</a>
+            </nav>
+        </div>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

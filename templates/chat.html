@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block title %}Chat - Smart Audit{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
+
+{% block navbar_title %}Smart Audit{% endblock %}
+
+{% block content %}
+    <div class="chat-container">
+        <div class="sidebar">
+            <h2>💬 Chat History</h2>
+            <button class="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
+            <div class="chat-history" id="chatHistory">
+                {% for sess in sessions %}
+                <div class="history-item {% if sess.id == current_session %}active{% endif %}" 
+                     onclick="loadSession('{{ sess.id }}')">
+                    <div class="history-title">
+                        {{ sess.first_message[:30] if sess.first_message else 'New Chat' }}...
+                    </div>
+                    <div class="history-date">{{ sess.created_at.strftime('%b %d, %H:%M') }}</div>
+                    <button class="delete-btn" onclick="deleteSession(event, '{{ sess.id }}')">🗑️</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-header">
+                <h1>📑 Audit Assistant</h1>
+            </div>
+
+            <div class="chat-wrapper">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-banner" id="welcomeBanner">
+                        <div class="banner-content">
+                            <h2>AI Audit Assistant</h2>
+                            <p>Ask me anything about your documents and I'll help you find the answers</p>
+                            <div class="banner-suggestions">
+                                <div class="suggestion-item">📄 Ask about policy wordings</div>
+                                <div class="suggestion-item">🔍 Search for specific information</div>
+                                <div class="suggestion-item">📊 Get detailed analysis</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% for msg in messages %}
+                    <div class="message {{ msg.role }}" data-role="{{ msg.role }}" data-content="{{ msg.content | replace('"', '&quot;') }}">
+                        <div class="message-content"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="loading" id="loading">⚙️ Agents work in progress...</div>
+            </div>
+
+            <div class="chat-input-container">
+                <form class="chat-input-form" onsubmit="sendMessage(event)">
+                    <input 
+                        type="text" 
+                        class="chat-input" 
+                        id="messageInput" 
+                        placeholder="Ask me anything about your documents..."
+                        autocomplete="off"
+                        required
+                    >
+                    <button type="submit" class="send-btn" id="sendBtn">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+{% endblock %}

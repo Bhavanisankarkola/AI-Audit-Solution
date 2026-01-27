@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{% block title %}Upload Documents - Smart Audit{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/upload.css')}}" rel="stylesheet">
+{% endblock %}
+
+{% block navbar_title %}Smart Audit{% endblock %}
+
+{% block content %}
+    <div class="main-content no-sidebar">
+        <div class="upload-page-content">
+            <div class="upload-section">
+                <h2>Add Your Documents</h2>
+                <p>Upload your audit documents, reports, and compliance files</p>
+
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <h3>Drag and drop files here</h3>
+                    <p>or click to select files</p>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt" style="display: none;">
+                </div>
+
+                <div class="file-list" id="fileList">
+                    <h3>Files to Upload</h3>
+                    <ul id="files"></ul>
+                </div>
+
+                <div class="upload-actions">
+                    <button class="upload-btn" id="uploadBtn" disabled>Upload Documents</button>
+                    <button class="cancel-btn" id="cancelBtn">Clear</button>
+                </div>
+
+                <div class="processing" id="processing" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing documents...</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span id="progressText">0%</span>
+                </div>
+
+                <div class="notification" id="notification">
+                    <div class="notification-content">
+                        <span id="notificationText"></span>
+                        <button class="notification-close" onclick="closeNotification()">×</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>Supported Formats</h3>
+                <ul>
+                    <li>📄 PDF Documents</li>
+                    <li>📝 Word Documents (.doc, .docx)</li>
+                    <li>📋 Text Files (.txt)</li>
+                </ul>
+
+                <h3>Important Notes</h3>
+                <ul>
+                    <li>Maximum file size: 50MB per file</li>
+                    <li>Documents are processed securely</li>
+                    <li>Processing takes about 15 seconds</li>
+                    <li>Your data is kept confidential</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+<script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+{% endblock %}
