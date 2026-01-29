@@ -6,6 +6,7 @@ import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_aws import ChatBedrock
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 import urllib.parse
@@ -17,6 +18,9 @@ load_dotenv()
 # Configuration
 DB_URL = os.getenv('DB_URL', 'postgresql://postgres:admin123@localhost:5432/postgres')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
+SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+MODEL_ID = os.getenv('AWS_MODEL')
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt'}
 
 # Initialize AI models
@@ -26,7 +30,12 @@ embeddings = GoogleGenerativeAIEmbeddings(
     task_type="RETRIEVAL_DOCUMENT"
 )
 
-gemini_model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY)
+aws_model = ChatBedrock(
+    model_id=MODEL_ID,
+    aws_access_key_id= ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY
+)
+gemini_model = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=GOOGLE_API_KEY)
 output_parser = StrOutputParser()
 
 # Prompt template
@@ -39,7 +48,7 @@ Question: \n{question}\n
 Answer:
 """
 prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-chain = prompt | gemini_model | output_parser
+chain = prompt | aws_model | output_parser
 
 
 # ==================== Database Operations ====================
@@ -110,9 +119,6 @@ def delete_session(session_id):
             cur.execute("DELETE FROM sessions WHERE id = %s", (session_id,))
         conn.commit()
 
-
-# ==================== AI and Retrieval Operations ====================
-
 def retrieve_and_answer(query):
     """Retrieve relevant chunks and generate answer"""
     # Embed the query
@@ -138,14 +144,7 @@ def retrieve_and_answer(query):
     
     # Check for various phrases indicating "not available"
     not_available_phrases = [
-        "not available in the context",
-        "not found in the context",
-        "not provided in the context",
-        "don't have this information",
-        "no information",
-        "cannot find",
-        "is not mentioned",
-        "is not discussed"
+        "not available in the context"
     ]
     
     has_no_answer = any(phrase in answer_lower for phrase in not_available_phrases)
@@ -171,9 +170,6 @@ def retrieve_and_answer(query):
         "references": references
     }
 
-
-# ==================== File Operations ====================
-
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -194,10 +190,4 @@ def save_uploaded_file(file, upload_folder):
 
 
 def process_document(filepath, filename):
-    """
-    Process a document (placeholder for chunking and embedding).
-    This should be implemented with actual document processing logic.
-    """
-    # TODO: Implement document chunking and embedding
-    # TODO: Store chunks in database with embeddings
     pass
