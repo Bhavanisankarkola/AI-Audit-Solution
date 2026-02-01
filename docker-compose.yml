@@ -6,11 +6,17 @@ services:
     build: .
     ports:
       - "5000:5000"
+    volumes:
+      - .:/app
     environment:
       # Connect to the 'db' service, not localhost
       - DB_URL=postgresql://postgres:admin123@db:5432/postgres
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - SECRET_KEY=dev_secret_key
+      - SECRET_KEY=${SECRET_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_MODEL=${AWS_MODEL}
+      - AWS_REGION_NAME=${AWS_REGION_NAME}
     depends_on:
       - db
 

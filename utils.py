@@ -21,6 +21,7 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
 SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 MODEL_ID = os.getenv('AWS_MODEL')
+AWS_REGION_NAME = os.getenv('AWS_REGION_NAME')
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt'}
 
 # Initialize AI models
@@ -33,7 +34,8 @@ embeddings = GoogleGenerativeAIEmbeddings(
 aws_model = ChatBedrock(
     model_id=MODEL_ID,
     aws_access_key_id= ACCESS_KEY,
-    aws_secret_access_key=SECRET_KEY
+    aws_secret_access_key=SECRET_KEY,
+    region_name = AWS_REGION_NAME 
 )
 gemini_model = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=GOOGLE_API_KEY)
 output_parser = StrOutputParser()
