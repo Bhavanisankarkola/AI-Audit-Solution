@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # 1. Your Flask App
+  flask-app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # Connect to the 'db' service, not localhost
+      - DB_URL=postgresql://postgres:admin123@db:5432/postgres
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - SECRET_KEY=dev_secret_key
+    depends_on:
+      - db
+
+  # 2. The Database (Pre-loaded with your data)
+  db:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=postgres
+    volumes:
+      # This loads your dump file automatically on first startup!
+      - ./db_data/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Persist data volume
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
