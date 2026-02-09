@@ -5,10 +5,9 @@ from datetime import datetime
 import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_aws import ChatBedrock
-from langchain_core.output_parsers import StrOutputParser
-from langchain.prompts import PromptTemplate
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from PyPDF2 import PdfReader
 import urllib.parse
 from werkzeug.utils import secure_filename
 
@@ -18,39 +17,20 @@ load_dotenv()
 # Configuration
 DB_URL = os.getenv('DB_URL', 'postgresql://postgres:admin123@localhost:5432/postgres')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
-SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-MODEL_ID = os.getenv('AWS_MODEL')
-AWS_REGION_NAME = os.getenv('AWS_REGION_NAME')
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt'}
 
-# Initialize AI models
+# Initialize embeddings and text splitter
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001",
     google_api_key=GOOGLE_API_KEY,
     task_type="RETRIEVAL_DOCUMENT"
 )
 
-aws_model = ChatBedrock(
-    model_id=MODEL_ID,
-    aws_access_key_id= ACCESS_KEY,
-    aws_secret_access_key=SECRET_KEY,
-    region_name = AWS_REGION_NAME 
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=5000,
+    chunk_overlap=300,
+    separators=['\n\n', '\n', ' ', '']
 )
-gemini_model = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=GOOGLE_API_KEY)
-output_parser = StrOutputParser()
-
-# Prompt template
-prompt_template = """
-Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-Context:\n {context}?\n
-Question: \n{question}\n
-
-Answer:
-"""
-prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-chain = prompt | aws_model | output_parser
 
 
 # ==================== Database Operations ====================
@@ -117,60 +97,9 @@ def delete_session(session_id):
     """Delete a chat session and all its messages"""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            # Messages will be deleted automatically due to CASCADE
             cur.execute("DELETE FROM sessions WHERE id = %s", (session_id,))
         conn.commit()
 
-def retrieve_and_answer(query):
-    """Retrieve relevant chunks and generate answer"""
-    # Embed the query
-    query_embedding = embeddings.embed_query(query, output_dimensionality=1536)
-
-    # Retrieve from database
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT * FROM match_chunks(%s::vector, %s)
-            """, (query_embedding, 5))
-            results = cur.fetchall()
-
-    # Combine context
-    context = "".join(row[2] for row in results)
-
-    # Generate answer
-    answer = chain.invoke({"context": context, "question": query})
-
-    # Build references only if answer indicates information was found
-    references = ""
-    answer_lower = answer.lower()
-    
-    # Check for various phrases indicating "not available"
-    not_available_phrases = [
-        "not available in the context"
-    ]
-    
-    has_no_answer = any(phrase in answer_lower for phrase in not_available_phrases)
-    
-    if not has_no_answer and results:
-        references_map = {}
-        for row in results:
-            file_path = row[-1]
-            doc_title = row[-2]
-            if file_path not in references_map:
-                references_map[file_path] = {"title": doc_title}
-
-        links = []
-        for path, info in references_map.items():
-            safe_path = path.replace("\\", "/")
-            url_path = urllib.parse.quote(safe_path)
-            links.append(f"[{info['title']}]({url_path})")
-
-        references = "References: " + ", ".join(links) if links else ""
-
-    return {
-        "answer": answer,
-        "references": references
-    }
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -181,7 +110,6 @@ def save_uploaded_file(file, upload_folder):
     """Save an uploaded file to the upload folder"""
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        # Add timestamp to avoid overwrites
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
         filename = timestamp + filename
         
@@ -192,4 +120,53 @@ def save_uploaded_file(file, upload_folder):
 
 
 def process_document(filepath, filename):
-    pass
+    """Process PDF document: extract text, create chunks, generate embeddings, and store in database"""
+    print(f"Processing file: {filepath}")
+    
+    # Read PDF and extract text
+    text = ""
+    with open(filepath, 'rb') as f:
+        pdf_reader = PdfReader(f)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    
+    print(f"Length of {filename}: {len(text)}")
+    
+    # Clean text encoding
+    text = text.encode("utf-8", "replace").decode("utf-8")
+    
+    # Create chunks
+    chunks = text_splitter.split_text(text)
+    
+    # Generate embeddings
+    vectors = embeddings.embed_documents(chunks, output_dimensionality=1536)
+    
+    # Insert document
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO documents (title, source, content, metadata)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            """, (filename, filepath, text, json.dumps({"status": "processed"})))
+            conn.commit()
+            
+            # Get document ID
+            cur.execute("SELECT id FROM documents WHERE source = %s", (filepath,))
+            doc_id = cur.fetchone()[0]
+            
+            # Prepare chunk data
+            data_to_insert = []
+            for i, chunk in enumerate(chunks):
+                data_to_insert.append(
+                    (doc_id, chunk, vectors[i], i, len(chunk.split()))
+                )
+            
+            # Insert chunks
+            cur.executemany("""
+                INSERT INTO chunks (document_id, content, embedding, chunk_index, token_count)
+                VALUES (%s, %s, %s, %s, %s)
+            """, data_to_insert)
+            conn.commit()
+    
+    print(f"{filename} processed successfully.")

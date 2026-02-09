@@ -3,9 +3,9 @@ from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
 from utils import (
     create_session, get_all_sessions, get_session_messages, save_message, delete_session,
-    retrieve_and_answer, allowed_file, save_uploaded_file, process_document
+    allowed_file, save_uploaded_file, process_document
 )
-
+from chat import ChatFlow
 # Load environment variables
 load_dotenv()
 
@@ -55,19 +55,46 @@ def upload_documents():
         return jsonify({"error": "No files provided"}), 400
 
     files = request.files.getlist('files')
+    
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({"error": "No files selected"}), 400
+
     uploaded_files = []
+    failed_files = []
+    processed_files = []
 
     for file in files:
+        # Check file extension using allowed_file function
+        if not allowed_file(file.filename):
+            failed_files.append({
+                "filename": file.filename,
+                "reason": "File type not allowed. Allowed types: pdf, doc, docx, txt"
+            })
+            continue
+
+        # Save the file
         filename, filepath = save_uploaded_file(file, app.config['UPLOAD_FOLDER'])
         if filename:
             uploaded_files.append(filename)
-            process_document(filepath, filename)
+            
+            # Process the document
+            try:
+                process_document(filepath, filename)
+                processed_files.append(filename)
+            except Exception as e:
+                failed_files.append({
+                    "filename": filename,
+                    "reason": f"Processing error: {str(e)}"
+                })
+                print(f"Error processing {filename}: {str(e)}")
 
     return jsonify({
-        "success": True,
-        "message": f"Uploaded {len(uploaded_files)} file(s)",
-        "files": uploaded_files
-    }), 200
+        "success": len(processed_files) > 0,
+        "message": f"Processed {len(processed_files)} file(s) successfully",
+        "processed_files": processed_files,
+        "failed_files": failed_files,
+        "total_files": len(files)
+    }), 200 if processed_files else 400
 
 
 
@@ -85,15 +112,32 @@ def send_message():
     save_message(session_id, 'user', user_message)
 
     # Get AI response
-    response = retrieve_and_answer(user_message)
-    full_response = f"{response['answer']}\n\n{response['references']}"
+    try:       
+        inputs = {
+            'current_message': user_message,
+            'id': session_id  # Pass session ID for tracking
+        }
+        
+        chat_flow = ChatFlow()
+        agent_result = chat_flow.kickoff(inputs=inputs)
+        
+        if isinstance(agent_result, dict):
+            full_response = agent_result.get("answer", str(agent_result))
+            references = agent_result.get("references", "")
+        else:
+            full_response = str(agent_result)
+            references = ""
+        
+    except Exception as e:
+        full_response = f"Error processing request: {str(e)}"
+        references = ""
 
     # Save assistant message
     save_message(session_id, 'assistant', full_response)
 
     return jsonify({
-        "answer": response['answer'],
-        "references": response['references']
+        "answer": full_response,
+        "references": references
     })
 
 

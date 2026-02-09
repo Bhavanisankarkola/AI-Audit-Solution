@@ -1,0 +1,17 @@
+audit_task:
+  description: >
+    Analyze the user's query: "{query}".
+    1. Use the vector_search_tool to look up information in the audit reports.
+    2. If the vector_search_tool returns "answer is not available" or similar, use the web_search_tool to find the information online.
+    3. Synthesize the findings into a clear, concise answer.
+    4. Explicitly state where the information came from.
+  expected_output: >
+    A JSON object with the following structure:
+    {
+      "answer": "comprehensive answer to the user's question",
+      "references": "References: list of document/web references used [path/weblink of each reference should be in the given for each references]
+                      For example: [Filename.pdf](file path), [weblink_shortened_name.com](Web link path)
+                      All the document reference should be there but limit the web reference to 3 and do not add any keys.
+                      Preserve Markdown format. If duplicate references found, remove and show only the original one."
+    }
+  agent: audit_agent
